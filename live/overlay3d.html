@@ -801,7 +801,13 @@ function showBanner(who, what, pray, ms){
 /* ============================== audio (same as the 2D overlay) ============================== */
 let AC = null, master = null, musicGain = null, sfx = null;
 const TRACKS = ['/assets/music/music1.mp3', '/assets/music/music2.mp3']; let trackIdx = Math.floor(Math.random() * TRACKS.length), musicEl = null;
-$('unmute').onclick = e => { e.currentTarget.remove(); startAudio(); };
+// Sound starts by itself where the host allows it (OBS, some in-app web views). Where it doesn't, the first tap, click or
+// key press ANYWHERE on the page starts it, so the button no longer has to be hit exactly.
+let audioOn = false;
+function goAudio(){ if (audioOn) return; audioOn = true; document.getElementById('unmute')?.remove(); startAudio(); }
+document.getElementById('unmute').onclick = goAudio;
+for (const ev of ['click', 'keydown', 'touchend']) addEventListener(ev, goAudio, { once: true, passive: true });
+setTimeout(() => { try { const t = new (window.AudioContext || window.webkitAudioContext)(); if (t.state === 'running') goAudio(); t.close(); } catch {} }, 600);
 function startAudio(){
   AC = new (window.AudioContext || window.webkitAudioContext)();
   master = AC.createGain(); master.gain.value = .9; master.connect(AC.destination);
