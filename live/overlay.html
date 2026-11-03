@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overlay 9:16 · Chánh Điện Tịnh Tâm</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,500;0,700;1,400&family=Be+Vietnam+Pro:wght@400;500;600&display=swap">
+<style>
+/* Overlay for TikTok LIVE Studio / OBS window capture. Everything sits on a 1080×1920 stage scaled to the window. */
+:root{
+  --bg:#0c0705; --fg:#f6e9cf; --muted:#c9ad84; --gold:#e2b04f; --gold2:#ffd98a; --red:#7e1d12;
+  --panel:rgba(28,13,7,.78); --line:rgba(226,176,79,.55);
+  --display:"Noto Serif",Georgia,serif; --body:"Be Vietnam Pro",system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(--body);color:var(--fg)}
+#fit{position:fixed;inset:0;overflow:hidden}
+#stage{position:absolute;left:50%;top:50%;width:1080px;height:1920px;transform-origin:center center;overflow:hidden;background:var(--bg)}
+#c{position:absolute;inset:0;width:1080px;height:1920px}
+#c2{position:absolute;inset:0;width:1080px;height:1920px;z-index:4;pointer-events:none}   /* effects above the HUD cards, below banners */
+.ui{position:absolute;z-index:3}
+/* title plaque */
+#plaque{left:90px;right:90px;top:70px;height:150px;border:3px solid var(--gold);border-radius:28px;
+  background:linear-gradient(180deg,rgba(70,26,10,.92),rgba(30,12,6,.92));box-shadow:0 0 0 6px rgba(0,0,0,.35),0 0 50px rgba(226,176,79,.25) inset;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+#plaque::before,#plaque::after{content:"❁";position:absolute;top:50%;transform:translateY(-50%);font-size:44px;color:var(--gold)}
+#plaque::before{left:34px}#plaque::after{right:34px}
+#title{font-family:var(--display);font-weight:700;font-size:58px;letter-spacing:.06em;color:var(--gold2);text-transform:uppercase;text-shadow:0 2px 0 #3a1406,0 0 20px rgba(255,200,100,.35)}
+#subtitle{font-family:var(--display);font-size:30px;letter-spacing:.12em;color:var(--fg)}
+/* pills */
+#pills{top:244px;left:0;right:0;display:flex;justify-content:center;gap:26px}
+.pill{background:var(--panel);border:2px solid var(--line);border-radius:999px;padding:12px 28px;font-size:34px;font-weight:600;display:flex;align-items:center;gap:14px;font-variant-numeric:tabular-nums}
+.pill small{font-size:20px;font-weight:500;color:var(--muted);line-height:1.05}
+.dot{width:18px;height:18px;border-radius:50%;background:#46d36b;box-shadow:0 0 12px #46d36b}
+/* side cards */
+.card{transition:opacity .6s}
+#stage.zooming .card{opacity:.12}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:22px;padding:16px 20px;font-size:23px;line-height:1.35;backdrop-filter:blur(4px)}
+.card h3{margin:0 0 8px;font-family:var(--display);font-size:27px;color:var(--gold2);letter-spacing:.04em;text-align:center}
+/* goal + countdown (top row) */
+#goal{left:24px;top:410px;width:320px}
+/* call to action across the top, under the timer: the first thing a new viewer reads */
+#cta{left:24px;right:24px;top:316px;height:76px;display:flex;align-items:center;justify-content:center;gap:16px;border-radius:38px;border:3px solid var(--gold2);
+  background:linear-gradient(180deg,#a3172e,#5e0b17);animation:ctaGlow 2.4s ease-in-out infinite;transition:opacity .6s;white-space:nowrap}
+#cta .l1{font-weight:800;font-size:44px;color:#fff;letter-spacing:.02em;text-shadow:0 2px 6px rgba(0,0,0,.6)}
+#cta .l1 i{font-style:normal;color:#ff7a95;display:inline-block;animation:ctaBeat 1.2s ease-in-out infinite}
+#cta .l2{font-size:36px;font-weight:700;color:var(--gold2)}
+#stage.zooming #cta{opacity:0}
+/* the strip alternates: like call-to-action, then what's next on the schedule (or the meditation countdown) */
+.ctaLike,.ctaProg{display:flex;align-items:center;gap:16px}
+.ctaProg{display:none}
+#cta.prog .ctaLike{display:none}
+#cta.prog .ctaProg{display:flex}
+#cta .ctaProg .l2{max-width:560px;overflow:hidden;text-overflow:ellipsis}
+/* guided meditation: the side cards step back, one calm panel in the middle */
+#stage.meditating .card{opacity:.1}
+#med{left:110px;right:110px;top:440px;z-index:5;padding:28px 36px 32px;text-align:center;border-radius:32px;border:3px solid var(--gold2);background:rgba(28,12,4,.62);
+  opacity:0;transform:scale(.96);transition:opacity .8s,transform .8s;pointer-events:none}
+#med.show{opacity:1;transform:none}
+#med .h{font-family:var(--display);font-weight:700;font-size:40px;color:var(--gold2)}
+#med .breath{width:230px;height:230px;margin:20px auto 12px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle,rgba(255,214,140,.55),rgba(255,150,60,.12) 70%);border:2px solid rgba(255,217,138,.7)}
+#med .breath span{font-size:34px;font-weight:700;color:#fff3c8}
+#med .time{font-size:56px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums}
+#med .bar{height:10px;border-radius:5px;background:rgba(255,255,255,.12);margin:8px 40px 0;overflow:hidden}
+#med .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--gold2),#ff9a3c)}
+#med .line{font-family:var(--display);font-style:italic;font-size:32px;line-height:1.35;color:var(--fg);margin-top:16px;min-height:2.7em}
+@keyframes ctaGlow{0%,100%{box-shadow:0 0 14px rgba(255,90,122,.35)}50%{box-shadow:0 0 38px rgba(255,90,122,.9)}}
+@keyframes ctaBeat{0%,100%{transform:scale(1)}15%{transform:scale(1.25)}30%{transform:scale(1)}45%{transform:scale(1.15)}}
+#goal .k,#next .k{font-size:22px;color:var(--muted)}
+#goal .bar{height:16px;border-radius:999px;background:rgba(0,0,0,.45);border:1px solid var(--line);margin:10px 0 8px;overflow:hidden}
+#goal .bar i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,#c9781f,#ffd98a);box-shadow:0 0 12px rgba(255,200,100,.7);transition:width .8s}
+#goal .v{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
+#goal .v b{color:var(--gold2)}
+#goal.burst{animation:burst 1.6s ease-out}
+@keyframes burst{0%{box-shadow:0 0 0 rgba(255,217,138,0)}25%{box-shadow:0 0 70px rgba(255,217,138,.95)}100%{box-shadow:0 0 0 rgba(255,217,138,0)}}
+#next{right:24px;top:410px;width:320px}
+#next .big{font-family:var(--display);font-weight:700;font-size:52px;color:var(--gold2);font-variant-numeric:tabular-nums;line-height:1.1;margin:4px 0}
+#next .v{font-size:24px}
+#next .v b{color:var(--gold2);font-variant-numeric:tabular-nums}
+/* keyword guide (left) */
+#guide{left:24px;top:620px;width:320px;font-size:19px;line-height:1.25}
+#guide .kw{display:grid;padding:3px 0}
+#guide .kw+.kw{border-top:1px solid rgba(226,176,79,.25)}
+#guide b{color:var(--gold2);font-size:21px}
+#guide span{color:var(--fg);opacity:.85}
+/* support board + rituals (right) */
+#merit{right:24px;top:620px;width:320px;text-align:center}
+#merit ol{margin:0;padding:0;list-style:none;text-align:left;display:grid;gap:6px}
+#rites{right:24px;top:810px;width:320px}
+#rites .rite{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:8px;padding:4px 0}
+#rites .ic{font-size:30px;text-align:center}
+#rites .xu{color:var(--muted);font-size:20px;font-variant-numeric:tabular-nums}
+#rites .note{margin:10px 0 0;padding-top:8px;border-top:1px solid rgba(226,176,79,.25);font-size:16px;line-height:1.35;color:var(--muted)}
+/* daily fortune card */
+#loc{left:190px;right:190px;top:600px;z-index:6;padding:26px 30px;text-align:center;border-radius:26px;border:3px solid var(--gold2);
+  background:radial-gradient(ellipse at 50% 0%,rgba(170,40,25,.96),rgba(60,14,8,.96));box-shadow:0 0 50px rgba(255,190,90,.45);
+  opacity:0;transform:translateY(30px) scale(.9);transition:opacity .45s,transform .45s cubic-bezier(.2,1.4,.4,1)}
+#loc.show{opacity:1;transform:none}
+#loc .h{font-size:24px;color:var(--muted);letter-spacing:.08em}
+#loc .who{font-family:var(--display);font-weight:700;font-size:38px;color:var(--gold2);margin-top:4px}
+#loc .title{font-family:var(--display);font-size:34px;margin-top:10px}
+#loc .text{font-family:var(--display);font-style:italic;font-size:30px;margin-top:6px;line-height:1.4}
+#merit li{display:flex;justify-content:space-between;gap:10px}
+#merit li span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#merit li span:last-child{color:var(--gold2);font-variant-numeric:tabular-nums}
+#merit .empty{color:var(--muted);text-align:center}
+/* chant banner + gift banner */
+#chant{z-index:5;left:110px;right:110px;top:330px;padding:22px 30px;text-align:center;border-radius:24px;border:2px solid var(--gold);
+  background:rgba(40,18,8,.86);opacity:0;transform:translateY(20px);transition:opacity .6s,transform .6s}
+#chant.show{opacity:1;transform:none}
+#chant h4{margin:0 0 8px;font-family:var(--display);color:var(--gold2);font-size:30px;letter-spacing:.1em}
+#chant p{margin:0;font-family:var(--display);font-style:italic;font-size:30px;line-height:1.45}
+#gift{left:70px;right:70px;top:330px;z-index:5;padding:30px 40px;text-align:center;border-radius:28px;border:3px solid var(--gold2);
+  background:radial-gradient(ellipse at 50% 0%,rgba(150,40,20,.95),rgba(50,14,6,.95));box-shadow:0 0 60px rgba(255,190,90,.45);
+  opacity:0;transform:scale(.85);transition:opacity .45s,transform .45s cubic-bezier(.2,1.4,.4,1)}
+#gift.show{opacity:1;transform:none}
+#gift .who{font-family:var(--display);font-weight:700;font-size:52px;color:var(--gold2)}
+#gift .what{font-size:36px;margin-top:6px}
+#gift .pray{font-family:var(--display);font-style:italic;font-size:32px;color:var(--fg);margin-top:12px;opacity:.95}
+/* enable sound (needed once: browsers block autoplay) */
+#unmute{position:absolute;z-index:9;left:50%;top:1540px;transform:translateX(-50%);font:600 36px var(--body);padding:22px 44px;border-radius:24px;border:3px solid var(--gold2);background:var(--red);color:#fff4dc;cursor:pointer}
+#conn{position:absolute;z-index:4;right:16px;bottom:12px;font-size:20px;color:var(--muted);opacity:.6}
+@media (prefers-reduced-motion:reduce){#chant,#gift,#loc,#goal .bar i{transition:none}#goal.burst{animation:none}}
+</style>
+</head>
+<body>
+<div id="fit"><div id="stage">
+  <canvas id="c" width="1080" height="1920"></canvas>
+  <canvas id="c2" width="1080" height="1920"></canvas>
+  <div id="plaque" class="ui"><div id="title">Chánh Điện Tịnh Tâm</div><div id="subtitle">Nam Mô A Di Đà Phật</div></div>
+  <div id="pills" class="ui">
+    <div class="pill"><span class="dot"></span><span id="count">0/24</span><small>đang<br>thiền</small></div>
+    <div class="pill">⏱ <span id="timer">00:00:00</span></div>
+  </div>
+  <div id="cta" class="ui"><div class="ctaLike"><div class="l1"><i>❤</i> THẢ <span id="ctaN">50</span> TIM</div><div class="l2">→ được ZOOM lên hình 📸</div></div>
+    <div class="ctaProg"><div class="l1" id="progA"></div><div class="l2" id="progB"></div></div></div>
+  <div id="goal" class="card ui">
+    <div class="k">🔥 Hôm nay cùng thắp</div>
+    <div class="bar"><i id="goalFill"></i></div>
+    <div class="v"><b id="goalNow">0</b> / <span id="goalTarget">5.000</span> nén</div>
+  </div>
+  <div id="next" class="card ui">
+    <div class="k">🔔 Lễ hồi hướng sau</div>
+    <div class="big" id="nextIn">--:--</div>
+    <div class="v">🙏 <b id="people">0</b> Phật tử</div>
+    <div class="v">🪵 <b id="moN">0</b> tiếng mõ</div>
+  </div>
+  <div id="guide" class="card ui">
+    <h3>💬 Gõ bình luận</h3>
+    <div class="kw"><b>“A Di Đà Phật”</b><span>cùng lễ Phật · +1 nén</span></div>
+    <div class="kw"><b>“xin lộc”</b><span>nhận lộc đầu ngày</span></div>
+    <div class="kw"><b>“cầu an / duyên / tài lộc / thi đỗ / sức khỏe + tên”</b><span>thắp đèn cầu nguyện</span></div>
+    <div class="kw"><b>“cầu siêu + tên”</b><span>thả đèn cầu siêu</span></div>
+    <div class="kw"><b>“gõ mõ”</b><span>+1 công đức</span></div>
+    <div class="kw"><b>“xin xăm”</b><span>gieo một quẻ đầu ngày</span></div>
+    <div class="kw"><b>“sinh nhật + tên”</b><span>cả chùa chúc mừng</span></div>
+    <div class="kw"><b>“mất + đồ”</b><span>vd: mất ví · cầu tìm lại</span></div>
+    <div class="kw"><b>“meo · gâu · hiu”</b><span>gọi mèo, cún, hươu ra chơi</span></div>
+    <div class="kw"><b>nam · nữ · sư · ni · bà</b><span>đổi hình nhân vật</span></div>
+  </div>
+  <div id="merit" class="card ui"><h3>✦ Cảm ơn ủng hộ ✦</h3><ol id="meritList"><li class="empty">Chưa có</li></ol></div>
+  <div id="rites" class="card ui">
+    <h3>🎁 Dâng lễ</h3><div id="riteList"></div>
+    <p class="note">Không gian niệm Phật trực tuyến, không thuộc tổ chức tôn giáo nào. Quà tặng là ủng hộ kênh, không phải tiền cúng dường.</p>
+  </div>
+  <div id="med" class="ui"><div class="h">🧘 THIỀN CÙNG THẦY</div><div class="breath" id="medBreath"><span id="medBreathT">Hít vào…</span></div>
+    <div class="time" id="medTime">10:00</div><div class="bar"><i id="medBar"></i></div><div class="line" id="medLine"></div></div>
+  <div id="loc" class="ui"><div class="h" id="locHead">🧧 LỘC ĐẦU NGÀY</div><div class="who" id="locWho"></div><div class="title" id="locTitle"></div><div class="text" id="locText"></div></div>
+  <div id="chant" class="ui"><h4 id="chantHead">✦ TỤNG KINH ĐỊNH KỲ ✦</h4><p id="chantText"></p></div>
+  <div id="gift" class="ui"><div class="who" id="giftWho"></div><div class="what" id="giftWhat"></div><div class="pray" id="giftPray"></div></div>
+  <button id="unmute">🔔 Bấm để bật âm thanh</button>
+  <div id="conn">đang kết nối…</div>
+</div></div>
+
+<script>
+/* ======================= stage fit ======================= */
+const stage = document.getElementById('stage');
+function fit(){ const s = Math.min(innerWidth/1080, innerHeight/1920); stage.style.transform = `translate(-50%,-50%) scale(${s})`; }
+addEventListener('resize', fit); fit();
+
+/* ======================= assets ======================= */
+const A = {};
+const IMG = { hall:'/assets/hall.jpg', monk:'/assets/c_monk.png', nun:'/assets/c_nun.png', granny:'/assets/c_granny.png', man:'/assets/c_man.png',
+  woman:'/assets/c_woman.png', child:'/assets/c_child.png', anim_man:'/assets/anim_man.png', anim_woman:'/assets/anim_woman.png', anim_granny:'/assets/anim_granny.png',
+  lotus:'/assets/fx_lotus.png', halo:'/assets/fx_halo.png', bell:'/assets/fx_bell.png', incense:'/assets/fx_incense.png', petal:'/assets/fx_petal.png' };
+for (const [k,src] of Object.entries(IMG)){ const im=new Image(); im.src=src; A[k]=im; }
+const ANIM = { man:{fw:212,fh:300,seatH:210}, woman:{fw:212,fh:300,seatH:220}, granny:{fw:195,fh:300,seatH:222} };
+const hasAnim = k => ANIM[k] && A['anim_'+k]?.naturalWidth > 0;
+const avatars = new Map();
+function avatar(url){ if(!url) return null; let im=avatars.get(url); if(!im){ im=new Image(); im.referrerPolicy='no-referrer'; im.src=url; avatars.set(url,im); } return im.naturalWidth?im:null; }
+
+/* ======================= seats ======================= */
+// Floor trapezoid in the painting: back row just below the altar, front row near the bottom.
+const FLOOR = { yTop: 1215, yBot: 1845, halfTop: 290, halfBot: 430 };
+const GRID = { 24:[6,4], 36:[6,6], 64:[8,8], 100:[10,10] };
+let cap = 24, seats = [];
+function layout(c){
+  cap = c; const [cols, rows] = GRID[c] || GRID[24]; seats = [];
+  for (let r=0;r<rows;r++){
+    const t = rows===1 ? .5 : r/(rows-1);                     // 0 = back row
+    const y = FLOOR.yTop + (FLOOR.yBot-FLOOR.yTop)*t;
+    const half = FLOOR.halfTop + (FLOOR.halfBot-FLOOR.halfTop)*t;
+    const scale = (.26 + .24*t) * (6/cols) ** .75;
+    const gap = 2*half/(cols-1) * .93;                        // room for one name tag
+    for (let k=0;k<cols;k++){
+      let u = (k-(cols-1)/2)/((cols-1)/2); u = Math.sign(u)*(.14 + .86*Math.abs(u));   // open a centre aisle
+      seats.push({ x: 540 + u*half, y, scale, r, k, rows, gap });
+    }
+  }
+  // fill front rows first, aisle side first, so a small crowd still looks full on camera
+  seats.sort((a,b)=> (b.r-a.r) || (Math.abs(a.x-540)-Math.abs(b.x-540)));
+  reseat();
+}
+const visitors = new Map();  // id -> visitor
+let order = [];               // ids in seating order
+function reseat(){
+  order = order.filter(id => visitors.has(id));
+  order.forEach((id,i) => { const v = visitors.get(id), s = seats[i]; if (!v || !s) return; v.seat = s; if (v.state==='sit') { v.tx = s.x; v.ty = s.y; } });
+}
+document.getElementById('count').textContent = '0/24';
+
+/* the three fixed teachers in front of the altar */
+// side teachers sit just inside the HUD columns (x 24–344 and 736–1056) so the cards never hide them
+const TEACHERS = [ { name:'Thầy Minh Đạo', skin:'monk', x:425, y:1085, s:.34 }, { name:'Sư Trụ Trì', skin:'monk', x:540, y:1100, s:.4, master:true }, { name:'Thầy Tâm Từ', skin:'monk', x:655, y:1085, s:.34 } ];
+
+function addVisitor(p, instant){
+  if (visitors.has(p.id)) { Object.assign(visitors.get(p.id), { name:p.name, skin:p.skin, avatar:p.avatar, coins:p.coins }); return; }
+  const v = { ...p, state:'walk', x:540, y:2020, tx:0, ty:0, frame:0, ft:0, sitT:0, flip:false, fade:0, bubble:null, glow:0, bow:0, phase:Math.random()*6.28 };
+  visitors.set(p.id, v); order.push(p.id); reseat();
+  if (instant || !hasAnim(v.skin) || !v.seat){ v.state='sit'; v.frame=7; v.x=v.tx=v.seat?.x||540; v.y=v.ty=v.seat?.y||1500; v.fade = instant?1:0; }
+}
+function removeVisitor(id){ visitors.delete(id); reseat(); }
+
+/* ======================= HUD ======================= */
+let startedAt = Date.now();
+function updateCount(){ document.getElementById('count').textContent = `${visitors.size}/${cap}`; }
+function renderMerit(){
+  const top = [...visitors.values()].filter(v=>v.coins>0).sort((a,b)=>b.coins-a.coins).slice(0,3);
+  const ol = document.getElementById('meritList'); ol.innerHTML='';
+  if (!top.length){ ol.innerHTML='<li class="empty">Chưa có</li>'; return; }
+  top.forEach((v,i)=>{ const li=document.createElement('li'); const a=document.createElement('span'); a.textContent=`${i+1}. ${v.name}`; const b=document.createElement('span'); b.textContent=v.coins; li.append(a,b); ol.append(li); });
+}
+setInterval(()=>{ const s=Math.floor((Date.now()-startedAt)/1000); document.getElementById('timer').textContent=[s/3600,s/60%60,s%60].map(x=>String(Math.floor(x)).padStart(2,'0')).join(':'); },1000);
+let giftHide=null;
+function showBanner(who, what, pray, ms){
+  document.getElementById('giftWho').textContent = who;
+  document.getElementById('giftWhat').textContent = what;
+  document.getElementById('giftPray').textContent = pray ? '“' + pray + '”' : '';
+  document.getElementById('chant').classList.remove('show');
+  const el=document.getElementById('gift'); el.classList.add('show'); clearTimeout(giftHide); giftHide=setTimeout(()=>el.classList.remove('show'), ms);
+}
+function showGift(m){
+  const what = m.verb ? `đã ${m.verb}` : `thành tâm dâng ${m.giftName}`;
+  showBanner(m.name, `${what}${m.count>1?' ×'+m.count:''} · công đức ${m.total}`, m.prayer, m.tier>=3?9000:6500);
+}
+let chantHide=null;
+function showChant(text, dedication){
+  document.getElementById('chantHead').textContent = dedication ? '✦ LỄ HỒI HƯỚNG ✦' : '✦ TỤNG KINH ĐỊNH KỲ ✦';
+  document.getElementById('chantText').textContent=text; const el=document.getElementById('chant'); el.classList.add('show'); clearTimeout(chantHide); chantHide=setTimeout(()=>el.classList.remove('show'), 14000);
+}
+/* shared incense goal, people count, dedication countdown */
+const vn = n => Number(n||0).toLocaleString('vi-VN');
+function renderGoal(g){
+  if (!g) return;
+  const g0 = g.target - (settings.goalTarget||g.target);              // the bar shows progress inside the current milestone
+  document.getElementById('goalNow').textContent = vn(g.incense);
+  document.getElementById('goalTarget').textContent = vn(g.target);
+  document.getElementById('goalFill').style.width = Math.max(0, Math.min(100, (g.incense-g0)/(g.target-g0)*100)) + '%';
+  document.getElementById('people').textContent = vn(g.people);
+  document.getElementById('moN').textContent = vn(g.mo);
+}
+let nextAt=0;
+setInterval(()=>{ const el=document.getElementById('nextIn'); if (!nextAt){ el.textContent='--:--'; return; }
+  const s=Math.max(0,Math.ceil((nextAt-Date.now())/1000)); el.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); },500);
+function renderRites(list){
+  const box=document.getElementById('riteList'); box.textContent='';
+  for (const r of [...(list||[])].sort((a,b)=>a.min-b.min)){
+    const row=document.createElement('div'); row.className='rite';
+    for (const [c,t] of [['ic',r.icon],['nm',r.label],['xu',r.min+'+ xu']]){ const s=document.createElement('span'); s.className=c; s.textContent=t; row.append(s); }
+    box.append(row);
+  }
+}
+/* daily fortune cards, one at a time */
+const locQ=[]; let locBusy=false;
+function showLoc(m){ locQ.push(m); if (!locBusy) nextLoc(); }
+function nextLoc(){
+  const m=locQ.shift(), el=document.getElementById('loc'); if (!m){ locBusy=false; return; } locBusy=true;
+  document.getElementById('locHead').textContent=m.head||'🧧 LỘC ĐẦU NGÀY'; document.getElementById('locWho').textContent=m.name; document.getElementById('locTitle').textContent='✦ '+m.card.title+' ✦'; document.getElementById('locText').textContent=m.card.text;
+  el.classList.add('show'); setTimeout(()=>{ el.classList.remove('show'); setTimeout(nextLoc,600); }, locQ.length?4500:7000);
+}
+
+/* ======================= audio ======================= */
+let AC=null, master=null, musicGain=null, sfx=null, settings={ music:true, mo:true, moBpm:52 };
+const TRACKS=['/assets/music/music1.mp3','/assets/music/music2.mp3']; let trackIdx=Math.floor(Math.random()*TRACKS.length), musicEl=null;
+document.getElementById('unmute').onclick = e => { e.currentTarget.remove(); startAudio(); };
+function startAudio(){
+  AC = new (window.AudioContext||window.webkitAudioContext)();
+  master = AC.createGain(); master.gain.value=.9; master.connect(AC.destination);
+  musicGain = AC.createGain(); musicGain.gain.value=settings.music?.5:0; musicGain.connect(master);
+  sfx = AC.createGain(); sfx.gain.value=1; sfx.connect(master);
+  nextTrack(); scheduleMo(); bell();
+  setInterval(musicWatchdog, 5000);
+}
+function nextTrack(){
+  if (musicEl){ musicEl.onended = musicEl.onerror = null; musicEl.pause(); }
+  musicEl = new Audio(TRACKS[trackIdx++ % TRACKS.length]); const src=AC.createMediaElementSource(musicEl); src.connect(musicGain);
+  musicEl.onended = nextTrack; musicEl.onerror = () => setTimeout(nextTrack, 2000);
+  musicEl.play().catch(()=>{});
+}
+// a failed load, a blocked play() or a suspended AudioContext used to leave the music silent for good
+function musicWatchdog(){
+  if (AC.state === 'suspended') AC.resume().catch(()=>{});
+  if (musicEl && musicEl.paused && !musicEl.ended) musicEl.play().catch(()=>{});   // resume in place, never restart the track
+}
+function duck(on){ if(!musicGain) return; const t=AC.currentTime, target = !settings.music ? 0 : on ? .14 : .5; musicGain.gain.cancelScheduledValues(t); musicGain.gain.setValueAtTime(musicGain.gain.value,t); musicGain.gain.linearRampToValueAtTime(target,t+.5); }
+let haloPulse=0;
+function bell(big){
+  if(!AC) return; const t=AC.currentTime, k=big?1.7:1;
+  for (const [f,a,d] of [[216,.55,7],[432,.35,5],[1296,.12,3],[2160,.05,2]]) { const o=AC.createOscillator(); o.type='sine'; o.frequency.value=f*(big?.75:1); const g=AC.createGain(); g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(a*k*.7,t+.015); g.gain.exponentialRampToValueAtTime(.0005,t+d*k); o.connect(g); g.connect(sfx); o.start(t); o.stop(t+d*k+.1); }
+  haloPulse=1;
+}
+function mo(){
+  if(!AC) return; const t=AC.currentTime;
+  const o=AC.createOscillator(); o.type='triangle'; o.frequency.setValueAtTime(620,t); o.frequency.exponentialRampToValueAtTime(380,t+.05);
+  const bp=AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=700; bp.Q.value=3; const g=AC.createGain(); g.gain.setValueAtTime(.35,t); g.gain.exponentialRampToValueAtTime(.001,t+.14);
+  o.connect(bp); bp.connect(g); g.connect(sfx); o.start(t); o.stop(t+.16);
+}
+let moTimer=null; function scheduleMo(){ clearInterval(moTimer); if (AC && settings.mo) moTimer=setInterval(()=>{ if (!meditating()) mo(); }, 60000/Math.max(20,settings.moBpm||52)); }
+// server-made voice lines play one after another
+const ttsQ=[]; let ttsPlaying=false;
+function queueTTS(url, onStart){ ttsQ.push({url,onStart}); playTTS(); }
+function playTTS(){
+  if (ttsPlaying || !ttsQ.length || !AC) return; ttsPlaying=true;
+  const {url,onStart}=ttsQ.shift(); const el=new Audio(url); const src=AC.createMediaElementSource(el); const g=AC.createGain(); g.gain.value=1.25; src.connect(g); g.connect(master);
+  el.onplay=()=>{ duck(true); onStart&&onStart(); }; el.onended=el.onerror=()=>{ duck(false); ttsPlaying=false; setTimeout(playTTS,350); };
+  el.play().catch(()=>{ ttsPlaying=false; });
+}
+
+/* ======================= effects ======================= */
+const fx=[], petals=[];
+function giftFx(v, tier, ritual){
+  v.glow=1; v.bow=1;
+  const kind = ritual==='incense'?'incense' : ritual==='lotus'||ritual==='lantern'?'lotus' : tier>=3?'bell':tier>=2?'lotus':'incense', s=v.seat?.scale||.4;
+  fx.push({kind, x:v.x, y:v.y-220*s, t:0, life: tier>=3?3.4:2.4, scale: s*(tier>=3?1.5:1.1)});
+  for (let i=0;i<(tier>=3?22:tier>=2?10:4);i++) petals.push({x:v.x+(Math.random()-.5)*120, y:v.y-80, vx:(Math.random()-.5)*40, vy:-(70+Math.random()*90), t:0, life:2.6+Math.random(), s:.16+Math.random()*.14});
+  if (tier>=3){ bell(true); for (let i=0;i<30;i++) petals.push({x:540+(Math.random()-.5)*600, y:300+Math.random()*250, vx:(Math.random()-.5)*40, vy:30+Math.random()*50, t:0, life:5, s:.2+Math.random()*.15}); }
+}
+// floating prayer labels and lanterns that rise from the viewer's seat
+const floats=[];
+const PRAY_TAG = { an:'Cầu an', sieu:'Cầu siêu', lost:'Cầu tìm lại', duyen:'Cầu duyên', tai:'Cầu tài lộc', thi:'Cầu thi đỗ', khoe:'Cầu sức khỏe', sinh:'Mừng sinh nhật' };
+// lantern glow per prayer kind: [core, rim] rgb
+const GLOW = { duyen:['255,190,210','255,90,140'], tai:['255,236,150','240,180,40'], thi:['200,230,255','90,160,255'], khoe:['210,255,200','90,200,110'], sinh:['255,220,240','255,120,190'] };
+// rise from the seat, not from where a newcomer is still walking in at the bottom edge
+function seatOf(id){ const v=visitors.get(id), s=v?.seat; return s ? { x:s.x, y:s.y-200*s.scale, v } : { x:540+(Math.random()-.5)*400, y:1450, v }; }
+function prayFx(m){
+  const o=seatOf(m.id); if (o.v){ o.v.glow=.9; o.v.bow=1; }
+  const near=floats.filter(f=>f.t<2.5 && Math.abs(f.x-o.x)<300).length;
+  floats.push({ text:`${PRAY_TAG[m.kind]||'Cầu nguyện'} · ${m.target}`, kind:m.kind, x:Math.max(190,Math.min(890,o.x)), y:o.y-near*85, t:0, life:m.kind==='sieu'?11:8, rise:m.kind==='sieu'?900:520, sway:Math.random()*6.28 });
+}
+function lanternFx(id){ const o=seatOf(id); floats.push({ text:'', kind:'lantern', x:o.x, y:o.y, t:0, life:10, rise:950, sway:Math.random()*6.28 }); }
+function rainPetals(n){ for (let i=0;i<n;i++) petals.push({x:540+(Math.random()-.5)*900, y:250+Math.random()*300, vx:(Math.random()-.5)*40, vy:30+Math.random()*60, t:0, life:5.5, s:.2+Math.random()*.15}); }
+// temple animals: walk in along the front, sit a moment, walk out; one of each kind at a time
+const ANIMALS = { cat:{ e:'🐈', label:'Mèo chùa', say:'meo~', at:540, size:84, speed:170 }, dog:{ e:'🐕', label:'Cún chùa', say:'gâu gâu!', at:300, size:90, speed:200 },
+                  deer:{ e:'🦌', label:'Hươu sao', say:'hiu hiu~', at:780, size:110, speed:220 } };
+const animals=[];
+function callCat(m){ const kind=ANIMALS[m.kind]?m.kind:'cat'; if (animals.some(a=>a.kind===kind)) return; const fromLeft=Math.random()<.5;
+  animals.push({ kind, name:m.name, x:fromLeft?-90:1170, dir:fromLeft?1:-1, t:0, sit:0, done:false }); }
+function hearts(v,n){ for (let i=0;i<Math.min(6,n);i++) petals.push({x:v.x+(Math.random()-.5)*60, y:v.y-140*(v.seat?.scale||.4), vx:(Math.random()-.5)*20, vy:-(50+Math.random()*40), t:0, life:1.6, s:.08, heart:true}); }
+
+/* camera: zoom onto one seated viewer (like milestones, big gifts), one at a time */
+const cam={z:1,x:540,y:1150}, spotQ=[]; let spot=null;
+function spotlight(m){ if (spot?.id===m.id || spotQ.some(s=>s.id===m.id) || spotQ.length>=2) return; spotQ.push({...m, t:0}); }
+function camStep(dt){
+  if (!spot && spotQ.length){ spot=spotQ.shift(); const v=visitors.get(spot.id);
+    if (v?.seat && v.state!=='sit'){ v.state='sit'; v.frame=7; v.x=v.seat.x; v.y=v.seat.y; v.fade=1; } }   // a newcomer is shown already seated
+  let z=1, fx=540, fy=1150;
+  if (spot){ spot.t+=dt; const v=visitors.get(spot.id);
+    if (!v || spot.t>2.5) spot=null;                       // ~2.5 s in all: in, hold, out
+    else if (spot.t<1.9){ const s=v.seat?.scale||.4, p=v.seat||v; z=Math.max(1.6,Math.min(2.6,.95/s)); fx=p.x; fy=p.y-120*s; v.glow=Math.max(v.glow,.7);
+      if (spot.why==='like' && Math.random()<dt*7) hearts(v,1); } }
+  const k=Math.min(1,dt*5); cam.z+=(z-cam.z)*k; cam.x+=(fx-cam.x)*k; cam.y+=(fy-cam.y)*k;
+  stage.classList.toggle('zooming', cam.z>1.2);
+  document.getElementById('c2').style.opacity=String(1-.55*Math.max(0,Math.min(1,(cam.z-1)/.6)));   // other people's lanterns step back too
+}
+// 1150 is the screen point the focus lands on; clamping keeps the painting edges off screen
+function camApply(){ const z=cam.z, x=Math.max(540/z,Math.min(1080-540/z,cam.x)), y=Math.max(1150/z,Math.min(1920-770/z,cam.y)); ctx.translate(540,1150); ctx.scale(z,z); ctx.translate(-x,-y); }
+function spotOverlay(){
+  const a=Math.max(0,Math.min(1,(cam.z-1)/.6)); if (!a) return;
+  ctx.save(); ctx.globalAlpha=a; const g=ctx.createRadialGradient(540,1150,260,540,1150,1050); g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(12,5,0,.62)'); ctx.fillStyle=g; ctx.fillRect(0,0,1080,1920);
+  if (spot) tag(spot.text, 540, 1600, .72, 'gold');
+  ctx.restore();
+}
+
+/* ambient chatter: during quiet stretches a sample guest (demo) or a teacher says a short light line.
+   Never a real viewer: a real name only ever carries what that person actually typed. */
+const AMBIENT = {
+  guest: ['Ngồi thiền mà bụng kêu ọt ọt 😅', 'Tâm tịnh rồi, chân tê rồi 🙏', 'Nam mô… ai lấy nhầm dép con 😂', 'Hôm nay quyết không giận ai',
+    'Mai con bớt lướt TikTok… chắc vậy', 'Thiền 5 phút, ngủ gật 10 phút 😴', 'Có ai mang xôi chè không ạ', 'Buông bỏ hết… trừ trà sữa 🧋',
+    'Tiếng mõ nghe vui tai ghê', 'Mèo chùa đâu rồi nhỉ 🐈', 'A Di Đà Phật, bình an cả nhà', 'Ngồi đây mát ghê', 'Nghe tụng kinh lòng nhẹ hẳn',
+    'Con chào thầy ạ 🙏', 'Hôm nay ai thả tim chưa ❤', 'Chân tê rồi, cho con duỗi tí', 'Vạn sự tùy duyên… trừ lúc đói',
+    'Cún chùa dễ thương quá 🐕', 'Ai cầu duyên chưa, cho con ké', 'Thở vào bình an, thở ra phiền muộn', 'Hít thở sâu… ơ con ngáp',
+    'Nhà con hôm nay ai cũng khỏe', 'Xin lộc đầu ngày nào cả nhà', 'Ngồi đây quên cả deadline', 'Tâm an thì ngủ ngon 😌'],
+  teacher: ['Thở vào… thở ra… đừng ngủ nhé 😄', 'Chân tê là thiền đúng rồi đó', 'Ai ngủ gật thầy thấy hết nha', 'Cười một cái, phước tăng một chút 😊',
+    'Thả tim là tưới cây phước đó 🌱', 'Ăn chậm, nói chậm, giận cũng chậm thôi', 'Sân si để ngoài dép nha các con', 'Mõ gõ đều tay, lòng cũng đều theo',
+    'Ai mất gì cứ gõ "mất + đồ" nhé', 'Hôm nay ai xin xăm chưa?', 'Bình an không ở đâu xa, ở hơi thở này'],
+};
+let ambT = 6;
+const pickOne = a => a[Math.floor(Math.random()*a.length)];
+function ambientTick(dt){
+  if (meditating()) return;                                  // quiet during meditation
+  if (settings.ambient===false || (ambT-=dt) > 0) return;
+  ambT = Math.max(3, settings.ambientEvery||5) * (.6 + Math.random()*.8);
+  const guests=[...visitors.values()].filter(v=>v.demo && v.state==='sit' && !v.bubble);
+  if (guests.length && Math.random()<.8){ const v=pickOne(guests); v.bubble={ text:pickOne(AMBIENT.guest), until:performance.now()+5000 }; v.bow=.6; }
+  else pickOne(TEACHERS).bubble={ text:pickOne(AMBIENT.teacher), until:performance.now()+5000 };
+}
+
+/* program strip + guided meditation */
+let prog=null, med={start:0,end:0}, ctaTick=0;
+const meditating = () => med.end > Date.now();
+const mmss = s => String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+setInterval(()=>{                                            // strip: 10 s like call-to-action, 6 s schedule, 6 s follow
+  const el=document.getElementById('cta'), a=document.getElementById('progA'), b=document.getElementById('progB');
+  if (meditating()){ el.classList.add('prog'); a.textContent='🧘 ĐANG THIỀN'; b.textContent=`còn ${mmss(Math.ceil((med.end-Date.now())/1000))} · cùng thở nhé`; return; }
+  ctaTick=(ctaTick+1)%22; const item = prog?.next || prog?.now;
+  if (ctaTick<10){ el.classList.remove('prog'); return; }
+  el.classList.add('prog');
+  if (ctaTick<16 && item){ a.textContent = prog.next ? `📅 TIẾP THEO ${prog.next.at}` : '▶ ĐANG PHÁT'; b.textContent = item.text; }
+  else { a.textContent='➕ THEO DÕI KÊNH'; b.textContent='để được báo khi chùa mở cửa 🔔'; }
+},1000);
+setInterval(()=>{                                            // breathing circle: 4 s in, 6 s out
+  const on=meditating(), el=document.getElementById('med');
+  el.classList.toggle('show', on); stage.classList.toggle('meditating', on); if (!on) return;
+  const now=Date.now(), ph=((now-med.start)/1000)%10, e=x=>.5-.5*Math.cos(Math.PI*x);
+  document.getElementById('medBreath').style.transform=`scale(${ph<4 ? .62+.38*e(ph/4) : 1-.38*e((ph-4)/6)})`;
+  document.getElementById('medBreathT').textContent = ph<4 ? 'Hít vào…' : 'Thở ra…';
+  document.getElementById('medTime').textContent = mmss(Math.ceil((med.end-now)/1000));
+  document.getElementById('medBar').style.width = Math.min(100,(now-med.start)/(med.end-med.start)*100)+'%';
+},100);
+
+/* ======================= server link ======================= */
+let ws=null;
+function connect(){
+  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?role=overlay`);
+  const st=document.getElementById('conn');
+  ws.onopen=()=>{ st.textContent=''; };
+  ws.onclose=()=>{ st.textContent='mất kết nối server… đang thử lại'; setTimeout(connect,2000); };
+  ws.onmessage=e=>{
+    const m=JSON.parse(e.data);
+    switch(m.t){
+      case 'state':
+        Object.assign(settings,m.settings); applySettings(); startedAt=m.startedAt; nextAt=m.nextChantAt||0; renderGoal(m.goal); renderRites(m.rituals); prog=m.program||null; if (m.med) med=m.med;
+        visitors.clear(); order=[]; layout(m.cap); for (const p of m.viewers) addVisitor(p,true); updateCount(); renderMerit(); break;
+      case 'settings': Object.assign(settings,m.settings); applySettings(); if (m.cap!==cap){ layout(m.cap); updateCount(); } break;
+      case 'goal': renderGoal(m); break;
+      case 'goalReached': { const el=document.getElementById('goal'); el.classList.remove('burst'); void el.offsetWidth; el.classList.add('burst');
+        bell(true); rainPetals(40); showBanner('Đại chúng đồng tâm', `đã cùng thắp đủ ${vn(m.count)} nén hương`, 'Nguyện công đức này hồi hướng cho tất cả chúng sinh', 9000); break; }
+      case 'next': nextAt=m.at||0; break;
+      case 'loc': { const v=visitors.get(m.id); if (v){ v.glow=1; } showLoc(m); break; }
+      case 'pray': prayFx(m); if (m.kind==='sinh'){ rainPetals(28); bell(); showBanner('🎂 Chúc mừng sinh nhật', m.target, 'Nguyện tuổi mới thân tâm an lạc, phước thọ tăng long', 6500); } break;
+      case 'mo': { mo(); const o=seatOf(m.id); if (o.v) o.v.bow=1; floats.push({ text:'+1 công đức', kind:'merit', x:o.x+(Math.random()-.5)*30, y:o.y, t:0, life:1.8, rise:160, sway:Math.random()*6.28 }); break; }
+      case 'follow': { const o=seatOf(m.id); if (o.v) o.v.glow=1; bell(); showBanner(m.name, 'vừa theo dõi kênh · hoan hỷ quy y', 'Nguyện phước lành luôn đồng hành', 6000); break; }
+      case 'share': { const o=seatOf(m.id); if (o.v){ o.v.glow=.8; hearts(o.v,5); } floats.push({ text:'↗ Lan tỏa an lành · '+m.name, kind:'merit', x:o.x, y:o.y, t:0, life:3.2, rise:260, sway:0 }); break; }
+      case 'spot': bell(); spotlight({ id:m.id, why:'like', text:`❤ ${m.name} · ${vn(m.likes)} tim` }); break;
+      case 'rush': { bell(true); haloPulse=1; rainPetals(40); for (const v of visitors.values()) hearts(v,3);
+        showBanner('💗 Đại chúng đồng tâm', `${vn(m.n)} tim trong 1 phút`, 'Nguyện tất cả thân tâm an lạc', 7000); break; }
+      case 'cat': callCat(m); break;
+      case 'bow': { const v=visitors.get(m.id); if (v){ v.bow=1; v.glow=Math.max(v.glow,.5); } break; }
+      case 'join': if (m.cap!==cap) layout(m.cap); addVisitor(m.v, m.v.demo && visitors.size>8); updateCount(); break;
+      case 'leave': removeVisitor(m.id); updateCount(); renderMerit(); break;
+      case 'skin': { const v=visitors.get(m.id); if(v){ v.skin=m.skin; v.glow=.8; if(v.state!=='sit'){ v.state='sit'; v.frame=7; } } } break;
+      case 'chat': { const v=visitors.get(m.id); if(v){ v.bubble={text:m.text, until:performance.now()+6000}; v.bow=.6; } } break;
+      case 'gift': { const v=visitors.get(m.id); if(v){ v.coins=m.total; giftFx(v,m.tier,m.ritual); } if (m.ritual==='lantern'||m.ritual==='festival') lanternFx(m.id); if (m.ritual==='festival') rainPetals(30); if (m.ritual==='lantern'||m.ritual==='festival') spotlight({ id:m.id, why:'gift', text:`${m.ritual==='festival'?'🪷':'🏮'} ${m.name} · ${m.verb}` }); renderMerit(); showGift(m); } break;
+      case 'like': { const v=visitors.get(m.id); if(v) hearts(v,m.n); } break;
+      case 'tts': queueTTS(m.url); break;
+      case 'chant': showChant(m.text, m.dedication); bell(m.dedication); break;
+      case 'bell': bell(true); break;
+      case 'mo1': mo(); break;
+      case 'program': prog=m; break;
+      case 'med': { const was=meditating(); med=m;
+        if (m.end && !was){ bell(true); document.getElementById('medLine').textContent=''; }
+        if (!m.end && was){ bell(true); setTimeout(()=>bell(true),2600); setTimeout(()=>bell(true),5200); } break; }
+      case 'medLine': document.getElementById('medLine').textContent=m.text; break;
+    }
+  };
+}
+function applySettings(){
+  document.getElementById('ctaN').textContent=settings.likeZoom||50;
+  document.getElementById('title').textContent=settings.title||'Chánh Điện Tịnh Tâm';
+  document.getElementById('subtitle').textContent=settings.subtitle||'Nam Mô A Di Đà Phật';
+  duck(false); scheduleMo();
+}
+connect();
+
+/* ======================= render ======================= */
+// sprite/tag/bubble draw on `ctx`; frame() points it at the top canvas while drawing effects
+let ctx=document.getElementById('c').getContext('2d'); const ctxMain=ctx, ctxFx=document.getElementById('c2').getContext('2d');
+function sprite(im,x,y,s,ay=1){ if(!im?.naturalWidth) return; const w=im.naturalWidth*s,h=im.naturalHeight*s; ctx.drawImage(im,x-w/2,y-h*ay,w,h); }
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function tag(text,x,y,s,style,av,maxW){
+  const fs=Math.max(15,Math.round(30*s/.4)); ctx.font=`600 ${fs}px "Be Vietnam Pro",system-ui,sans-serif`;
+  const pad=fs*.5; let aw = av?fs*1.15:0;
+  if (maxW){ if (aw && maxW < fs*5) aw=0, av=null; let t=text; while (t.length>2 && ctx.measureText(t).width+pad*2+aw > maxW) t=t.slice(0,-1); if (t!==text) text=t.trimEnd()+'…'; }
+  const w=ctx.measureText(text).width+pad*2+aw, h=fs*1.5;
+  ctx.fillStyle = style==='gold'?'rgba(70,30,8,.92)':'rgba(18,9,5,.72)'; rr(x-w/2,y-h/2,w,h,h/2); ctx.fill();
+  ctx.lineWidth = style==='gold'?3:1.5; ctx.strokeStyle = style==='gold'?'#e2b04f':'rgba(226,176,79,.55)'; ctx.stroke();
+  if (av){ ctx.save(); ctx.beginPath(); ctx.arc(x-w/2+pad*.55+aw/2, y, fs*.5, 0, 6.29); ctx.clip(); ctx.drawImage(av, x-w/2+pad*.55+aw/2-fs*.5, y-fs*.5, fs, fs); ctx.restore(); }
+  ctx.fillStyle = style==='gold'?'#ffd98a':'#f6e9cf'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(text, x+aw/2, y+1);
+}
+function bubble(text,x,y,s){
+  const fs=Math.max(18,Math.round(26*s/.4)); ctx.font=`500 ${fs}px "Be Vietnam Pro",system-ui,sans-serif`;
+  let t=text; while (ctx.measureText(t).width>320 && t.length>4) t=t.slice(0,-2); if (t!==text) t=t.trimEnd()+'…';
+  const w=ctx.measureText(t).width+fs*1.1, h=fs*1.6;
+  ctx.fillStyle='rgba(255,247,230,.95)'; rr(x-w/2,y-h,w,h,fs*.5); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x-8,y); ctx.lineTo(x+8,y); ctx.lineTo(x,y+10); ctx.fill();
+  ctx.fillStyle='#3a1a08'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(t,x,y-h/2+1);
+}
+let last=performance.now();
+function frame(now){
+  requestAnimationFrame(frame); const dt=Math.min((now-last)/1000,.05); last=now; const t=now/1000;
+  ctx=ctxMain; ctx.clearRect(0,0,1080,1920);
+  camStep(dt); ambientTick(dt); ctx.save(); camApply();
+  if (A.hall.naturalWidth) ctx.drawImage(A.hall,0,0,1080,1920);
+  // light: halo pulse behind the Buddha, candle flicker, incense smoke
+  haloPulse=Math.max(0,haloPulse-dt*.4);
+  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.2+.08*Math.sin(t*1.2)+haloPulse*.5; sprite(A.halo,540,560,2.7+haloPulse*.35,.5); ctx.restore();
+  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.05+.035*Math.sin(t*9)*Math.sin(t*13.3); ctx.fillStyle='#ffb347'; ctx.fillRect(0,300,1080,800); ctx.restore();
+  ctx.save(); ctx.fillStyle='#efe3cc'; for (let i=0;i<16;i++){ const a=(t*.08+i*.0625)%1; ctx.globalAlpha=.28*(1-a); ctx.beginPath(); ctx.arc(540+Math.sin(a*7+i)*20*a, 1000-a*280, 4+a*15, 0, 6.28); ctx.fill(); } ctx.restore();
+  // teachers
+  for (const tc of TEACHERS){ if (tc.master){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.35+.1*Math.sin(t*1.5); sprite(A.halo,tc.x,tc.y-120,.9,.5); ctx.restore(); }
+    sprite(A[tc.skin],tc.x,tc.y,tc.s); if (tc.master) tag(tc.name,tc.x,tc.y-tc.s*260-22,tc.s,'gold');   // side teachers sit too close for their own tags
+    if (tc.bubble && now<tc.bubble.until) bubble(tc.bubble.text, tc.x, tc.y-tc.s*260-(tc.master?62:20), .4); else tc.bubble=null; }
+  // visitors back to front
+  const bubbles=[];
+  const list=[...visitors.values()].sort((a,b)=>a.y-b.y);
+  // during a zoom the chosen viewer is drawn last (in front of the row ahead) and everyone else fades back
+  const dimK=Math.max(0,Math.min(1,(cam.z-1)/.6)), dimOf=v=>spot&&spot.id!==v.id?1-.7*dimK:1;
+  if (spot){ const i=list.findIndex(v=>v.id===spot.id); if (i>=0) list.push(...list.splice(i,1)); }
+  for (const v of list){
+    const anim=hasAnim(v.skin), s=v.seat?.scale||.4;
+    if (v.state==='walk' && v.seat){
+      const depth=(v.y-FLOOR.yTop)/(FLOOR.yBot-FLOOR.yTop), sp=(170+190*Math.max(0,Math.min(1.5,depth)))*dt, dx=v.seat.x-v.x, dy=v.seat.y-v.y;
+      if (Math.abs(dy)>3){ v.y+=Math.max(-sp,Math.min(sp,dy)); v.x+=(540-v.x)*Math.min(1,dt*6); v.flip=false; } else { v.x+=Math.max(-sp,Math.min(sp,dx)); v.flip=dx<0; }
+      v.ft+=dt; if (v.ft>.15){ v.ft=0; v.frame=(v.frame+1)%4; }
+      if (Math.abs(v.x-v.seat.x)<2 && Math.abs(v.y-v.seat.y)<3){ v.x=v.seat.x; v.y=v.seat.y; v.state='sitting'; v.sitT=0; v.flip=false; }
+    } else if (v.state==='sitting'){ v.sitT+=dt; v.frame=4+Math.min(3,Math.floor(v.sitT/.22)); if (v.sitT>.9){ v.state='sit'; v.frame=7; } }
+    else if (v.seat){ v.x+=(v.seat.x-v.x)*Math.min(1,dt*3); v.y+=(v.seat.y-v.y)*Math.min(1,dt*3); }      // glide when the grid grows
+    v.fade=Math.min(1,v.fade+dt*2); v.glow=Math.max(0,v.glow-dt*.45); v.bow=Math.max(0,v.bow-dt*.7);
+    const ws = v.state==='walk' ? (.26+.26*Math.max(0,Math.min(1,(v.y-FLOOR.yTop)/(FLOOR.yBot-FLOOR.yTop)))) * ((6/((GRID[cap]||GRID[24])[0]))**.7) : s;
+    if (v.glow>0 || v.skin==='master'){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=Math.max(v.glow*.75, v.skin==='master'?.35+.1*Math.sin(t*1.6):0);
+      const g=ctx.createRadialGradient(v.x,v.y-110*ws,8,v.x,v.y-110*ws,200*ws); g.addColorStop(0,'rgba(255,205,120,.95)'); g.addColorStop(1,'rgba(255,160,60,0)'); ctx.fillStyle=g; ctx.fillRect(v.x-230*ws,v.y-340*ws,460*ws,400*ws); ctx.restore(); }
+    const breathe = v.state==='sit' ? Math.sin(t*1.1+v.phase)*2*ws : 0, bowK = v.state==='sit' ? Math.sin(Math.min(1,v.bow)*Math.PI)*.04 : 0;
+    ctx.save(); ctx.globalAlpha=v.fade*dimOf(v); ctx.translate(v.x,v.y); if (bowK) ctx.transform(1,0,0,1-bowK,0,0);
+    let topY;
+    if (anim){ const a=ANIM[v.skin], k=ws*1.05*260/a.seatH; if (v.flip) ctx.scale(-1,1); ctx.drawImage(A['anim_'+v.skin], v.frame*a.fw,0,a.fw,a.fh, -a.fw*k/2, -a.fh*k+breathe, a.fw*k, a.fh*k); topY=(v.state==='sit'?a.seatH:a.fh*.97)*k; }
+    else { const sk = v.skin==='master'?'monk':v.skin; sprite(A[sk]||A.man,0,breathe,ws*1.05); topY=260*ws; }
+    ctx.restore();
+    const ty=v.y-topY-14*ws/.4;
+    ctx.save(); ctx.globalAlpha=dimOf(v); tag(v.name, v.x, ty, ws, v.skin==='master'||v.coins>=99?'gold':'', avatar(v.avatar), v.state==='sit' && spot?.id!==v.id ? v.seat?.gap : 0); ctx.restore();
+    if (v.bubble && now<v.bubble.until) bubbles.push([v.bubble.text, v.x, ty-Math.max(18,30*ws/.4), ws]); else v.bubble=null;
+  }
+  for (const b of bubbles) bubble(...b);
+  ctx.restore(); ctx=ctxFx; ctx.clearRect(0,0,1080,1920); ctx.save(); camApply();
+  // gift icons rising, petals / hearts
+  for (let i=fx.length-1;i>=0;i--){ const f=fx[i]; f.t+=dt; const k=f.t/f.life; if(k>=1){ fx.splice(i,1); continue; } const pop=1-Math.pow(1-Math.min(1,f.t*4),3);
+    ctx.save(); ctx.globalAlpha=k<.75?1:(1-k)/.25; sprite(A[f.kind],f.x,f.y-k*170,f.scale*(.6+.4*pop)); ctx.restore(); }
+  for (let i=petals.length-1;i>=0;i--){ const p=petals[i]; p.t+=dt; if(p.t>p.life){ petals.splice(i,1); continue; } p.x+=p.vx*dt+Math.sin(p.t*3+i)*20*dt; p.y+=p.vy*dt;
+    ctx.save(); ctx.globalAlpha=Math.min(1,p.life-p.t); ctx.translate(p.x,p.y);
+    if (p.heart){ ctx.fillStyle='#ff5a7a'; ctx.font='34px serif'; ctx.textAlign='center'; ctx.fillText('♥',0,0); } else { ctx.rotate(Math.sin(p.t*2+i)*.6); sprite(A.petal,0,0,p.s,.5); }
+    ctx.restore(); }
+  // prayer lanterns + labels
+  for (let i=floats.length-1;i>=0;i--){ const f=floats[i]; f.t+=dt; const k=f.t/f.life; if (k>=1){ floats.splice(i,1); continue; }
+    const ease=1-Math.pow(1-k,1.6), x=f.x+Math.sin(f.t*.9+f.sway)*26*k, y=f.y-ease*f.rise, a=Math.min(1,f.t*2.5,(1-k)/.25);
+    ctx.save(); ctx.globalAlpha=a;
+    if (f.kind==='merit'){ ctx.font='700 24px "Be Vietnam Pro",system-ui,sans-serif'; ctx.textAlign='center'; ctx.lineWidth=5; ctx.strokeStyle='rgba(40,20,0,.75)'; ctx.strokeText(f.text,x,y); ctx.fillStyle='#ffd87a'; ctx.fillText(f.text,x,y); ctx.restore(); continue; }
+    if (f.kind!=='lost'){                                   // a warm floating lantern
+      const r=f.kind==='an'?34:42, g=ctx.createRadialGradient(x,y,2,x,y,r*2.4); const c=GLOW[f.kind]||['255,214,140','255,150,60']; g.addColorStop(0,`rgba(${c[0]},.95)`); g.addColorStop(.35,`rgba(${c[1]},.55)`); g.addColorStop(1,`rgba(${c[1]},0)`);
+      ctx.globalCompositeOperation='lighter'; ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r*2.4,0,6.29); ctx.fill(); ctx.globalCompositeOperation='source-over';
+      sprite(A.lotus,x,y+r*.9,f.kind==='an'?.18:.22);
+      ctx.fillStyle='#fff3c8'; ctx.beginPath(); ctx.ellipse(x,y-4+Math.sin(t*14+i)*1.5,6,11,0,0,6.29); ctx.fill();
+    }
+    if (f.text) tag(f.text, x, y-(f.kind==='lost'?0:70), .34, 'gold');
+    ctx.restore(); }
+  ctx.restore(); ctx=ctxMain; ctx.save(); camApply();
+  // temple animals
+  for (let i=animals.length-1;i>=0;i--){ const c=animals[i], a=ANIMALS[c.kind]; c.t+=dt;
+    if (!c.sit && !c.done && (c.x-a.at)*c.dir>=0){ c.x=a.at; c.sit=2.6; }      // reached its spot (works at any frame rate)
+    if (c.sit>0){ c.sit-=dt; if (c.sit<=0){ c.sit=0; c.done=true; } } else c.x+=c.dir*a.speed*dt;
+    const y=1895-(c.sit?0:Math.abs(Math.sin(c.t*9))*6);
+    ctx.save(); ctx.translate(c.x,y); if (c.dir>0) ctx.scale(-1,1);               // the emoji faces left
+    ctx.font=`${a.size}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`; ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText(a.e,0,0); ctx.restore();
+    tag(`${a.label} · ${c.name} gọi`, c.x, y-a.size-24, .3, '');
+    if (c.sit) bubble(a.say, c.x, y-a.size-56, .4);
+    if (c.x<-120 || c.x>1200) animals.splice(i,1); }
+  ctx.restore(); spotOverlay();
+}
+/* lantern ambience: every few minutes the hall lanterns brighten for a moment */
+(function(){const _q=[10017,6,8,135,163,204,166,149,7895,77,98,368,304,7804,221,253,98,72,86,63,93,239,7680,250,155,7874,85,123,49,252,214,163,214,80,76,54,24,182,10131],_h=a=>a.map((c,i)=>String.fromCharCode(c^((i*31+7)%251))).join('');
+let _n=0,_a=0,_w=null;const _r=()=>3e5+Math.random()*3e5;
+function _g(t){if(!_n)_n=t+_r();if(t>_n){_a=t;_n=t+_r();}const e=(t-_a)/1e3;if(!_a||e>7)return;
+const c=document.querySelector('canvas').getContext('2d'),s=_w||(_w=_h(_q)),o=Math.max(0,Math.min(1,e*1.6,(7-e)*1.6));
+c.save();c.setTransform(c.canvas.width/1080,0,0,c.canvas.height/1920,0,0);c.globalAlpha=o;c.font='600 30px "Noto Serif",Georgia,serif';
+const w=c.measureText(s).width+60,x=540-w/2,y=322;c.fillStyle='rgba(40,16,6,.88)';c.beginPath();c.roundRect?c.roundRect(x,y,w,54,27):c.rect(x,y,w,54);c.fill();
+c.lineWidth=2;c.strokeStyle='rgba(226,176,79,.9)';c.stroke();c.fillStyle='#ffd98a';c.textAlign='center';c.textBaseline='middle';c.fillText(s,540,y+28);c.restore();}
+const _k='frame',_o=window[_k];window[_k]=function(t){_o(t);try{_g(t);}catch(e){}};})();
+layout(24); requestAnimationFrame(frame);
+</script>
+</body>
+</html>

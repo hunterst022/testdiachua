@@ -1,0 +1,22 @@
+# Render Blueprint: đẩy repo lên GitHub → Render → New → Blueprint → chọn repo này.
+services:
+  - type: web
+    name: chanh-dien-tinh-tam
+    runtime: node
+    plan: free               # miễn phí. Server tự gọi /healthz mỗi 10 phút để không bị ngủ (xem HUONG_DAN_RENDER.md)
+    region: singapore        # gần Việt Nam nhất
+    buildCommand: cd live && npm ci --omit=dev
+    startCommand: cd live && node server.mjs
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: TZ
+        value: Asia/Ho_Chi_Minh
+      - key: NO_AUTH
+        value: 1                # 1 = bảng điều khiển không cần mật khẩu. Muốn có mật khẩu: xóa dòng này, thêm biến CONTROL_PASSWORD
+      - key: TIKTOK_USERNAME
+        sync: false           # tùy chọn: tự kết nối live @username mỗi khi server khởi động
+      - key: EULER_API_KEY
+        sync: false           # tùy chọn: khóa ký của Euler Stream nếu TikTok chặn IP máy chủ
